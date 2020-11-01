@@ -6,8 +6,9 @@ import java.util.Set;
 
 public class Question {
     public String text;
-    public Set<String> options=new HashSet<>();
-    public Set<String> answers=new HashSet<>();
+    public Set<String> options = new HashSet<>();
+    public Set<String> answers = new HashSet<>();
+    public Set<String> wrongAnswers = new HashSet<>();
 
     @Override
     public boolean equals(Object o) {
@@ -20,5 +21,10 @@ public class Question {
     @Override
     public int hashCode() {
         return Objects.hash(text);
+    }
+
+    public void wrong() {
+        wrongAnswers.addAll(answers);
+        answers.clear();
     }
 }

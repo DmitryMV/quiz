@@ -43,6 +43,7 @@ public class Quiz {
         String line;
         System.out.println("Enter question followed by empty line or 'end quiz' to review quiz:");
         while ((line = in.readLine()) != null) {
+            line = line.trim();
             if ("end quiz".equalsIgnoreCase(line)) {
                 review(in);
                 saveKnowledgeBase();
@@ -50,16 +51,20 @@ public class Quiz {
             } else {
                 readQuestion(line, in);
             }
+            saveKnowledgeBase();
             System.out.println("Enter question followed by empty line or 'end quiz' to review quiz:");
         }
     }
 
     private void readQuestion(String questionText, BufferedReader in) throws IOException {
         Set<String> options = new LinkedHashSet<>();
-        String line = null;
-        while ((line = in.readLine()) != null && "".equals(line.trim())) {
-            // skip empty lines
+        while (questionText.isEmpty()) {
+            questionText = in.readLine();
+            if (questionText == null) {
+                return;
+            }
         }
+        String line = null;
 
         while ((line = in.readLine()) != null) {
             line = line.trim();
@@ -88,17 +93,38 @@ public class Quiz {
         String[] optionsArr = options.toArray(new String[0]);
         int i = 1;
         for (String option : optionsArr) {
-            System.out.println(format("  %d: %s", i++, option));
+            String marker;
+            if (question.wrongAnswers.contains(option)) {
+                marker = "X";
+            } else if (question.answers.contains(option)) {
+                marker = "V";
+            } else {
+                marker = " ";
+            }
+            System.out.println(format("[%s]  %d: %s", marker, i++, option));
         }
-        System.out.print("Answer # (comma separated): ");
-        String[] indxes = in.readLine().split(",");
+        boolean read = false;
+        Set<String> selectedAnswers = null;
+        String[] indxes = null;
+        do {
+            try {
+                System.out.print("Answer # (comma separated): ");
+                indxes = in.readLine().split(",");
+                selectedAnswers = new LinkedHashSet<>();
+                for (String indx : indxes) {
+                    int idx = Integer.parseInt(indx.trim());
+                    String selected = optionsArr[idx - 1];
+                    selectedAnswers.add(selected);
+                }
+                read = true;
+            } catch (NumberFormatException e) {
+                System.err.println("Failed to read answers. Please repeat.");
+            }
+        } while (!read);
         System.out.println("You have selected options:");
-        Set<String> selectedAnswers = new LinkedHashSet<>();
-        for (String indx : indxes) {
-            int idx = Integer.parseInt(indx.trim());
-            String selected = optionsArr[idx - 1];
-            System.out.println(format("  %s: %s", indx, selected));
-            selectedAnswers.add(selected);
+        int k = 0;
+        for (String selected : selectedAnswers) {
+            System.out.println(format("  %s: %s", indxes[k++], selected));
         }
         question.answers = selectedAnswers;
         questionsPool.put(questionText, question);
@@ -113,7 +139,16 @@ public class Quiz {
             if ("".equalsIgnoreCase(line)) {
                 return;
             }
-            questionsPool.remove(line);
+            Question q = questionsPool.get(line);
+            if (q != null) {
+                System.out.println(format("Wrong answer(s) for question '%s' were:", q.text));
+                for (String answer : q.answers) {
+                    System.out.println("    " + answer);
+                }
+                q.wrong();
+            } else {
+                System.out.println(format("Question '%s' not found", line));
+            }
         }
     }
 
@@ -135,7 +170,6 @@ public class Quiz {
         String json = gson.toJson(questionsPool);
         try {
             Files.writeString(QUESTIONS_POOL_FILE, json);
-            System.out.println("Questions pool saved to " + QUESTIONS_POOL_FILE.toAbsolutePath());
         } catch (IOException e) {
             throw new RuntimeException();
         }
